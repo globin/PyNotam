@@ -76,3 +76,5 @@ target/
 # File-based project format:
 *.ipr
 *.iws
+
+.direnv
