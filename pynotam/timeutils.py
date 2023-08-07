@@ -1,9 +1,10 @@
-from datetime import *
+from datetime import datetime
 
 
 class EstimatedDateTime(datetime):
     """Represents an estimated point in time. Instances are identical to datetime.datetime in every way,
     except that the instance will have an attribute 'is_estimated' which is set to True."""
+    is_estimated = False
 
     def __new__(cls, *args, **kwargs):
         """May be initialized either identically to a regular datetime.datetime or, optionally, by

@@ -1,11 +1,11 @@
 import datetime
 import unittest
-import notam
-from tests.test_helper import read_single_notam
+from .. import Notam
+from .test_helper import read_single_notam
 
 
 class TestNotam(unittest.TestCase):
-    def test_parsed_fields(self):
+    def test_parsed_fields(self) -> None:
         expected_values = {
             'A0623/91' : {
                 'notam_id' : 'A0623/91',
@@ -50,11 +50,7 @@ class TestNotam(unittest.TestCase):
 
         for (notam_to_test, expected) in expected_values.items():
             notam_text = read_single_notam(notam_to_test)
-            n = notam.Notam.from_str(notam_text)
+            n = Notam.from_str(notam_text)
             for (field, value) in expected.items():
                 with self.subTest(msg='Field "{}" of NOTAM "{}"'.format(field, notam_to_test)):
                     self.assertEqual(getattr(n, field), value)
-
-
-if __name__ == '__main__':
-    unittest.main()

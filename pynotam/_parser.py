@@ -1,5 +1,15 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, Callable, List, Sequence
+from typing_extensions import override
 import parsimonious
-import timeutils
+from datetime import timezone
+
+from parsimonious.nodes import Node, RegexNode
+from .timeutils import datetime, EstimatedDateTime
+
+if TYPE_CHECKING:
+    from . import Notam
 
 grammar = parsimonious.Grammar(r"""
     root = "(" header __ q_clause __ a_clause __ b_clause __ (c_clause __)? (d_clause __)? e_clause (__ f_clause __ g_clause)? ")"
@@ -43,29 +53,32 @@ grammar = parsimonious.Grammar(r"""
 """)
 
 class NotamParseVisitor(parsimonious.NodeVisitor):
-    def __init__(self, tgt = None):
+    def __init__(self, tgt: "Notam"):
         """tgt must be an instance of an object with a __dict__ attribute. All data attributes
         resulting from the parsing of the NOTAM will be assigned to that object."""
-        self.tgt = self if tgt is None else tgt
+        self.tgt = tgt
         super().__init__()
 
     grammar = grammar
 
     @staticmethod
-    def has_descendant(node, descnd_name):
-        if node.expr_name == descnd_name: return True
-        else: return any([NotamParseVisitor.has_descendant(c,descnd_name) for c in node.children])
+    def has_descendant(node: Node, descnd_name: str) -> bool:
+        if node.expr_name == descnd_name:
+            return True
+        else:
+            return any([NotamParseVisitor.has_descendant(c,descnd_name) for c in node.children])
 
-    def visit_simple_regex(self, node, _): return node.match.group(0)
+    def visit_simple_regex(self, node: RegexNode, _) -> str:
+        return node.match.group(0)
     visit_till_next_clause = visit_simple_regex
 
-    def visit_code_node(self, *args, meanings):
+    def visit_code_node(self, *args: RegexNode, meanings: dict[str, str]):
         """Maps coded strings, where each character encodes a special meaning, into a corresponding decoded set
         according to the meanings dictionary (see examples of usage further below)"""
         codes = self.visit_simple_regex(*args)
         return set([meanings[code] for code in codes])
 
-    def visit_intX(self, *args):
+    def visit_intX(self, *args: RegexNode) -> int:
         v = self.visit_simple_regex(*args)
         return int(v)
 
@@ -73,28 +86,27 @@ class NotamParseVisitor(parsimonious.NodeVisitor):
     visit_int3 = visit_intX
 
     @staticmethod
-    def visit_notamX_header(notam_type):
-        def inner(self, _, visited_children):
+    def visit_notamX_header(notam_type: str) -> Callable[[NotamParseVisitor, Node, Sequence[str]], None]:
+        def inner(self: NotamParseVisitor, _, visited_children: Sequence[str]):
             self.tgt.notam_id = visited_children[0]
             self.tgt.notam_type = notam_type
             if self.tgt.notam_type in ('REPLACE', 'CANCEL'):
                 self.tgt.ref_notam_id = visited_children[-1]
         return inner
 
-    visit_notamn_header = visit_notamX_header.__func__('NEW')
-    visit_notamr_header = visit_notamX_header.__func__('REPLACE')
-    visit_notamc_header = visit_notamX_header.__func__('CANCEL')
+    visit_notamn_header = visit_notamX_header('NEW')
+    visit_notamr_header = visit_notamX_header('REPLACE')
+    visit_notamc_header = visit_notamX_header('CANCEL')
 
     visit_icao_id = visit_simple_regex
     visit_notam_id = visit_simple_regex
-    visit_notam_code = visit_simple_regex
 
-    def visit_q_clause(self, node, visited_children):
+    def visit_q_clause(self, _: Node, visited_children: list[Any]):
         self.tgt.fir = visited_children[2]
         self.tgt.fl_lower = visited_children[12]
         self.tgt.fl_upper = visited_children[14]
 
-    def visit_notam_code(self, *args):
+    def visit_notam_code(self, *args: RegexNode):
         self.tgt.notam_code = self.visit_simple_regex(*args) # TODO: Parse this into the code's meaning. One day...
 
     def visit_traffic_type(self, *args):
@@ -115,12 +127,12 @@ class NotamParseVisitor(parsimonious.NodeVisitor):
                                                                'W' : 'NAV WARNING',
                                                                'K' : 'CHECKLIST'})
 
-    def visit_area_of_effect(self, node, _):
+    def visit_area_of_effect(self, node: RegexNode, _):
         self.tgt.area = node.match.groupdict() # dictionary containing mappings for 'lat', 'long', and 'radius'
         self.tgt.area['radius'] = int(self.tgt.area['radius'])
 
-    def visit_a_clause(self, node, _):
-        def _dfs_icao_id(n):
+    def visit_a_clause(self, node: RegexNode, _):
+        def _dfs_icao_id(n: RegexNode) -> List[str]:
             if n.expr_name == "icao_id": return [self.visit_simple_regex(n, [])]
             return sum([_dfs_icao_id(c) for c in n.children], []) # flatten list-of-lists
 
@@ -129,49 +141,50 @@ class NotamParseVisitor(parsimonious.NodeVisitor):
         self.tgt.location = _dfs_icao_id(node)
         self.tgt.indices_item_a = (start, end)
 
-    def visit_b_clause(self, node, visited_children):
+    def visit_b_clause(self, node: Node, visited_children: Sequence[Any]):
         self.tgt.valid_from = visited_children[2]
         content_child = node.children[2]
         self.tgt.indices_item_b = (content_child.start, content_child.end)
 
-    def visit_c_clause(self, node, visited_children):
+    def visit_c_clause(self, node: Node, visited_children: Sequence[Any]):
         if self.has_descendant(node, 'permanent'):
-            dt = timeutils.datetime.max
+            dt = datetime.max
         else:
             dt = visited_children[2][0][0]
             if self.has_descendant(node, 'estimated'):
-                dt = timeutils.EstimatedDateTime(dt)
+                dt = EstimatedDateTime(dt)
         self.tgt.valid_till = dt
         content_child = node.children[2]
         self.tgt.indices_item_c = (content_child.start, content_child.end)
 
-    def visit_d_clause(self, node, visited_children):
+    def visit_d_clause(self, node: Node, visited_children: Sequence[Any]):
         self.tgt.schedule = visited_children[2]
         content_child = node.children[2]
         self.tgt.indices_item_d = (content_child.start, content_child.end)
 
-    def visit_e_clause(self, node, visited_children):
+    def visit_e_clause(self, node: Node, visited_children: Sequence[Any]):
         self.tgt.body = visited_children[2]
         content_child = node.children[2]
         self.tgt.indices_item_e = (content_child.start, content_child.end)
 
-    def visit_f_clause(self, node, visited_children):
+    def visit_f_clause(self, node: Node, visited_children: Sequence[Any]):
         self.tgt.limit_lower = visited_children[2]
         content_child = node.children[2]
         self.tgt.indices_item_f = (content_child.start, content_child.end)
 
-    def visit_g_clause(self, node, visited_children):
+    def visit_g_clause(self, node: Node, visited_children: Sequence[Any]):
         self.tgt.limit_upper = visited_children[2]
         content_child = node.children[2]
         self.tgt.indices_item_g = (content_child.start, content_child.end)
 
-    def visit_datetime(self, _, visited_children):
+    def visit_datetime(self, _, visited_children: List[Any]):
         dparts = visited_children
         dparts[0] = 1900 + dparts[0] if dparts[0] > 80 else 2000 + dparts[0] # interpret 2-digit year
-        return timeutils.datetime(*dparts, tzinfo=timeutils.timezone.utc)
+        return datetime(*dparts, tzinfo=timezone.utc)
 
-    def generic_visit(self, _, visited_children):
+    @override
+    def generic_visit(self, node: Node, visited_children: Sequence[Any]) -> Sequence[Any]:
         return visited_children
 
-    def visit_root(self, node, _):
+    def visit_root(self, node: Node, _):
         self.tgt.full_text = node.full_text
