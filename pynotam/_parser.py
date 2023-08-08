@@ -20,7 +20,7 @@ grammar = parsimonious.Grammar(r"""
     notamc_header = notam_id _ "NOTAMC" _ notam_id
     notam_id = ~r"[A-Z][0-9]{4}/[0-9]{2}"
 
-    q_clause = "Q)" _ fir "/" notam_code "/" traffic_type "/" purpose "/" scope "/" lower_limit "/" upper_limit "/" area_of_effect
+    q_clause = "Q)" _ fir "/" notam_code "/" traffic_type _* "/" purpose _* "/" scope _* "/" lower_limit "/" upper_limit "/" area_of_effect
     fir = icao_id
     notam_code = ~r"Q[A-Z]{4}"
     traffic_type = ~r"(?=[IVK]+)I?V?K?"
@@ -34,7 +34,7 @@ grammar = parsimonious.Grammar(r"""
     location_icao = icao_id
 
     b_clause = "B)" _ datetime
-    c_clause = "C)" _ ((datetime estimated?) / permanent)
+    c_clause = "C)" _ ((datetime _* estimated?) / permanent)
     estimated = "EST"
     permanent = "PERM"
 
@@ -103,8 +103,8 @@ class NotamParseVisitor(parsimonious.NodeVisitor):
 
     def visit_q_clause(self, _: Node, visited_children: list[Any]):
         self.tgt.fir = visited_children[2]
-        self.tgt.fl_lower = visited_children[12]
-        self.tgt.fl_upper = visited_children[14]
+        self.tgt.fl_lower = visited_children[15]
+        self.tgt.fl_upper = visited_children[17]
 
     def visit_notam_code(self, *args: RegexNode):
         self.tgt.notam_code = self.visit_simple_regex(*args) # TODO: Parse this into the code's meaning. One day...
