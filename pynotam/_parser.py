@@ -30,8 +30,9 @@ grammar = parsimonious.Grammar(r"""
     upper_limit = int3
     area_of_effect = ~r"(?P<lat>[0-9]{4}[NS])(?P<long>[0-9]{5}[EW])(?P<radius>[0-9]{3})"
 
-    a_clause = "A)" _ location_icao (" " location_icao)*
-    location_icao = icao_id
+    # TODO: needs improved multi-part handling
+    a_clause = "A)" _ location_icao (_ location_icao)* (_ "PART" _ int _ "OF" _ int)?
+    location_icao = !"PART" icao_id
 
     b_clause = "B)" _ datetime
     c_clause = "C)" _ ((datetime _* estimated?) / permanent)
@@ -47,6 +48,7 @@ grammar = parsimonious.Grammar(r"""
     __ = (" " / "\n")+
     icao_id = ~r"[A-Z]{4}"
     datetime = int2 int2 int2 int2 int2 # year month day hours minutes
+    int = ~r"[0-9]"
     int2 = ~r"[0-9]{2}"
     int3 = ~r"[0-9]{3}"
     till_next_clause = ~r".*?(?=(?:\)$)|(?:\s[A-Z]\)))"s
