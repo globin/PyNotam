@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from . import Notam
 
 grammar = parsimonious.Grammar(r"""
-    root = "(" header __ q_clause __ a_clause __ b_clause __ (c_clause __)? (d_clause __)? e_clause (__ f_clause __ g_clause)? ")"
+    root = "("? header __ q_clause __ a_clause __ b_clause __ (c_clause __)? (d_clause __)? e_clause (__ f_clause __ g_clause)? ")"?
 
     header = notamn_header / notamr_header / notamc_header
     notamn_header = notam_id _ "NOTAMN"
