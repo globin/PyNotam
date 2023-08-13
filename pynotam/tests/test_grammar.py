@@ -44,4 +44,3 @@ class GrammarParse(unittest.TestCase):
     def test_root(self) -> None:
         notams = ['\n'.join(d) for d in self.test_data]
         self.try_parse_all('root', notams)
-

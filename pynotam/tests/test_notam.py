@@ -24,7 +24,9 @@ class TestNotam(unittest.TestCase):
                 'schedule' : 'APR 03 07 12 21 24 AND 28 0730 TO 1500',
                 'body' : 'DANGER AREA DXX IS ACTIVE',
                 'limit_lower' : 'GND',
-                'limit_upper' : '12 200 m (40 000 ft) MSL.'
+                'limit_upper' : '12 200 m (40 000 ft) MSL.',
+                'created': None,
+                'source': None,
             },
             '476008' : {
                 'notam_id' : 'A0126/15',
@@ -44,7 +46,30 @@ class TestNotam(unittest.TestCase):
                 'schedule' : None,
                 'body' : 'ATS RTE `H4A` NOT AVBL UFN.',
                 'limit_lower' : None,
-                'limit_upper' : None
+                'limit_upper' : None,
+                'created': None,
+                'source': None,
+            },
+            'C2661/23' : {
+                'notam_id' : 'C2661/23',
+                'notam_type' : 'NEW',
+                'fir' : 'EDMM',
+                'notam_code' : 'QOBCE',
+                'traffic_type' : set(['IFR', 'VFR']),
+                'purpose' : set(['MISC']),
+                'scope' : set(['AERODROME', 'EN-ROUTE']),
+                'fl_lower' : 0,
+                'fl_upper' : 11,
+                'area' : {'lat' : '4955N', 'long' : '01055E', 'radius' : 5},
+                'location' : ['EDQA'],
+                'valid_from' : datetime.datetime(2023, 8, 9, 4, 0, tzinfo=datetime.timezone.utc),
+                'valid_till' : datetime.datetime(2023, 11, 9, 23, 59, tzinfo=datetime.timezone.utc),
+                'schedule' : None,
+                'body' : 'HIGH CRANES ERECTED WI GLIDER TFC PATTERN. PSN 495451N 0105449E\nAND 495451N 0105450E. 0.3NM S OF ARP. ELEV 1001FT/197FT AGL. DAY AND\nNIGHT MARKED.',
+                'limit_lower' : None,
+                'limit_upper' : None,
+                'created': datetime.datetime(2023, 8, 8, 13, 5, tzinfo=datetime.timezone.utc),
+                'source': 'EUECYIYN',
             }
         }
 

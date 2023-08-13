@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from . import Notam
 
 grammar = parsimonious.Grammar(r"""
-    root = "("? header __ q_clause __ a_clause __ b_clause __ (c_clause __)? (d_clause __)? e_clause (__ f_clause __ g_clause)? ")"?
+    root = "("? header __ q_clause __ a_clause __ b_clause __ (c_clause __)? (d_clause __)? e_clause (__ f_clause __ g_clause)? (__ created)? (__ source)? ")"?
 
     header = notamn_header / notamr_header / notamc_header
     notamn_header = notam_id _ "NOTAMN"
@@ -44,6 +44,9 @@ grammar = parsimonious.Grammar(r"""
     f_clause = "F)" _ till_next_clause
     g_clause = "G)" _ till_next_clause
 
+    created = "CREATED:" _ till_next_clause
+    source = "SOURCE:" _ till_next_clause
+
     _ = " "
     __ = (" " / "\n")+
     icao_id = ~r"[A-Z]{4}"
@@ -51,7 +54,7 @@ grammar = parsimonious.Grammar(r"""
     int = ~r"[0-9]"
     int2 = ~r"[0-9]{2}"
     int3 = ~r"[0-9]{3}"
-    till_next_clause = ~r".*?(?=(?:\)$)|(?:\s[A-Z]\)))"s
+    till_next_clause = ~r".*?(?=(?:\)$)|(?:\s[A-Z]\))|(?:\s(?:CREATED|SOURCE):))"s
 """)
 
 class NotamParseVisitor(parsimonious.NodeVisitor):
@@ -183,6 +186,14 @@ class NotamParseVisitor(parsimonious.NodeVisitor):
         dparts = visited_children
         dparts[0] = 1900 + dparts[0] if dparts[0] > 80 else 2000 + dparts[0] # interpret 2-digit year
         return datetime(*dparts, tzinfo=timezone.utc)
+
+    def visit_created(self, _, visited_children: List[Any]):
+        self.tgt.created = datetime.strptime(visited_children[2], '%d %b %Y %H:%M:%S').replace(tzinfo=timezone.utc)
+        return visited_children
+
+    def visit_source(self, _, visited_children: List[Any]):
+        self.tgt.source = visited_children[2]
+        return visited_children
 
     @override
     def generic_visit(self, node: Node, visited_children: Sequence[Any]) -> Sequence[Any]:

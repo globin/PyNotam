@@ -94,6 +94,11 @@ class Notam(object):
     """Textual specification of upper height limits of activities or restrictions."""
     limit_upper: Optional[str] = None
 
+    """Source of the NOTAM."""
+    source: Optional[str] = None
+    """The date and time of creation."""
+    created: Optional[datetime] = None
+
     # The following contain [start,end) indices for their corresponding NOTAM items (if such exist).
     # They can be used to index into Notam.full_text.
     indices_item_a: Optional[Tuple[int, int]] = None

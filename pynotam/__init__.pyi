@@ -23,6 +23,8 @@ class Notam:
     body: Optional[str]
     limit_lower: Optional[str]
     limit_upper: Optional[str]
+    source: Optional[str]
+    created: Optional[datetime]
     indices_item_a: Optional[Tuple[int, int]]
     indices_item_b: Optional[Tuple[int, int]]
     indices_item_c: Optional[Tuple[int, int]]
