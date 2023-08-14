@@ -44,7 +44,7 @@ grammar = parsimonious.Grammar(r"""
     f_clause = "F)" _ till_next_clause
     g_clause = "G)" _ till_next_clause
 
-    created = "CREATED:" _ till_next_clause
+    created = "CREATED:" _ int2 _ month _ year _ int2 ":" int2 ":" int2
     source = "SOURCE:" _ till_next_clause
 
     _ = " "
@@ -54,6 +54,8 @@ grammar = parsimonious.Grammar(r"""
     int = ~r"[0-9]"
     int2 = ~r"[0-9]{2}"
     int3 = ~r"[0-9]{3}"
+    month = ~r"[a-zA-Z]{3}"
+    year = ~r"[0-9]{4}"
     till_next_clause = ~r".*?(?=(?:\)$)|(?:\s[A-Z]\))|(?:\s(?:CREATED|SOURCE):))"s
 """)
 
@@ -89,6 +91,10 @@ class NotamParseVisitor(parsimonious.NodeVisitor):
 
     visit_int2 = visit_intX
     visit_int3 = visit_intX
+    visit_year = visit_intX
+
+    def visit_month(self, node: RegexNode, visited_children: list[Any]):
+        return datetime.strptime(node.match.group(0), '%b').month
 
     @staticmethod
     def visit_notamX_header(notam_type: str) -> Callable[[NotamParseVisitor, Node, Sequence[str]], None]:
@@ -188,7 +194,7 @@ class NotamParseVisitor(parsimonious.NodeVisitor):
         return datetime(*dparts, tzinfo=timezone.utc)
 
     def visit_created(self, _, visited_children: List[Any]):
-        self.tgt.created = datetime.strptime(visited_children[2], '%d %b %Y %H:%M:%S').replace(tzinfo=timezone.utc)
+        self.tgt.created = datetime(visited_children[6], visited_children[4], visited_children[2], visited_children[8], visited_children[10], tzinfo=timezone.utc)
         return visited_children
 
     def visit_source(self, _, visited_children: List[Any]):
