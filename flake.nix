@@ -12,16 +12,22 @@
   outputs = { self, nixpkgs, flake-utils, poetry2nix, ... }: {
     overlays.default = nixpkgs.lib.composeManyExtensions [
       poetry2nix.overlay
-      (final: prev: let python = final.python3; in {
+      (final: prev: let
+        python = final.python3;
+        overrides = final: prev: {
+          timeutils = prev.timeutils.overridePythonAttrs (old: {
+            buildInputs = (old.buildInputs or [ ]) ++ [ prev.setuptools ];
+          });
+          types-parsimonious = prev.types-parsimonious.overridePythonAttrs (old: {
+            buildInputs = (old.buildInputs or [ ]) ++ [ prev.setuptools ];
+          });
+        };
+      in {
         pynotam = prev.poetry2nix.mkPoetryApplication {
           inherit python;
           projectDir = prev.poetry2nix.cleanPythonSources { src = ./.; };
           pythonImportCheck = [ "pynotam" ];
-          overrides = prev.poetry2nix.overrides.withDefaults (final: prev: {
-            timeutils = prev.timeutils.overridePythonAttrs (old: {
-              buildInputs = (old.buildInputs or [ ]) ++ [ prev.setuptools ];
-            });
-          });
+          overrides = prev.poetry2nix.overrides.withDefaults overrides;
         };
         pynotam-dev = prev.poetry2nix.mkPoetryEnv {
           inherit python;
@@ -29,11 +35,7 @@
           editablePackageSources = {
             pynotam = ./pynotam;
           };
-          overrides = prev.poetry2nix.overrides.withDefaults (final: prev: {
-            timeutils = prev.timeutils.overridePythonAttrs (old: {
-              buildInputs = (old.buildInputs or [ ]) ++ [ prev.setuptools ];
-            });
-          });
+          overrides = prev.poetry2nix.overrides.withDefaults overrides;
         };
       })
     ];

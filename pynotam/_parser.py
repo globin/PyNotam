@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Callable, List, Sequence
+from typing import TYPE_CHECKING, Any, Callable, List, Sequence, Set, Tuple, cast
 from typing_extensions import override
 import parsimonious
-from datetime import timezone
-
 from parsimonious.nodes import Node, RegexNode
-from .timeutils import datetime, EstimatedDateTime
+
+from datetime import datetime, timezone
+
+from .timeutils import EstimatedDateTime
 
 if TYPE_CHECKING:
     from . import Notam
@@ -75,17 +76,17 @@ class NotamParseVisitor(parsimonious.NodeVisitor):
         else:
             return any([NotamParseVisitor.has_descendant(c,descnd_name) for c in node.children])
 
-    def visit_simple_regex(self, node: RegexNode, _) -> str:
+    def visit_simple_regex(self, node: RegexNode, _: Sequence[Any]) -> str:
         return node.match.group(0)
     visit_till_next_clause = visit_simple_regex
 
-    def visit_code_node(self, *args: RegexNode, meanings: dict[str, str]):
+    def visit_code_node(self, *args: RegexNode, meanings: dict[str, str]) -> Set[str]:
         """Maps coded strings, where each character encodes a special meaning, into a corresponding decoded set
         according to the meanings dictionary (see examples of usage further below)"""
         codes = self.visit_simple_regex(*args)
         return set([meanings[code] for code in codes])
 
-    def visit_intX(self, *args: RegexNode) -> int:
+    def visit_intX(self, *args) -> int:
         v = self.visit_simple_regex(*args)
         return int(v)
 
@@ -93,12 +94,12 @@ class NotamParseVisitor(parsimonious.NodeVisitor):
     visit_int3 = visit_intX
     visit_year = visit_intX
 
-    def visit_month(self, node: RegexNode, visited_children: list[Any]):
+    def visit_month(self, node: RegexNode, visited_children: list[Any]) -> int:
         return datetime.strptime(node.match.group(0), '%b').month
 
     @staticmethod
     def visit_notamX_header(notam_type: str) -> Callable[[NotamParseVisitor, Node, Sequence[str]], None]:
-        def inner(self: NotamParseVisitor, _, visited_children: Sequence[str]):
+        def inner(self: NotamParseVisitor, _: Node, visited_children: Sequence[str]) -> None:
             self.tgt.notam_id = visited_children[0]
             self.tgt.notam_type = notam_type
             if self.tgt.notam_type in ('REPLACE', 'CANCEL'):
@@ -112,39 +113,39 @@ class NotamParseVisitor(parsimonious.NodeVisitor):
     visit_icao_id = visit_simple_regex
     visit_notam_id = visit_simple_regex
 
-    def visit_q_clause(self, _: Node, visited_children: list[Any]):
+    def visit_q_clause(self, _: Node, visited_children: list[Any]) -> None:
         self.tgt.fir = visited_children[2]
         self.tgt.fl_lower = visited_children[15]
         self.tgt.fl_upper = visited_children[17]
 
-    def visit_notam_code(self, *args: RegexNode):
+    def visit_notam_code(self, *args: RegexNode) -> None:
         self.tgt.notam_code = self.visit_simple_regex(*args) # TODO: Parse this into the code's meaning. One day...
 
-    def visit_traffic_type(self, *args):
+    def visit_traffic_type(self, *args: RegexNode) -> None:
         self.tgt.traffic_type = self.visit_code_node(*args, meanings={'I' : 'IFR',
                                                                       'V' : 'VFR',
                                                                       'K' : 'CHECKLIST'})
 
-    def visit_purpose(self, *args):
+    def visit_purpose(self, *args: RegexNode) -> None:
         self.tgt.purpose = self.visit_code_node(*args, meanings={'N' : 'IMMEDIATE ATTENTION',
                                                                  'B' : 'OPERATIONAL SIGNIFICANCE',
                                                                  'O' : 'FLIGHT OPERATIONS',
                                                                  'M' : 'MISC',
                                                                  'K' : 'CHECKLIST'})
 
-    def visit_scope(self, *args):
+    def visit_scope(self, *args: RegexNode) -> None:
         self.tgt.scope = self.visit_code_node(*args, meanings={'A' : 'AERODROME',
                                                                'E' : 'EN-ROUTE',
                                                                'W' : 'NAV WARNING',
                                                                'K' : 'CHECKLIST'})
 
-    def visit_area_of_effect(self, node: RegexNode, _):
+    def visit_area_of_effect(self, node: RegexNode, _: Sequence[Any]) -> None:
         self.tgt.area = node.match.groupdict() # dictionary containing mappings for 'lat', 'long', and 'radius'
         self.tgt.area['radius'] = int(self.tgt.area['radius'])
 
-    def visit_a_clause(self, node: RegexNode, _):
-        def _dfs_icao_id(n: RegexNode) -> List[str]:
-            if n.expr_name == "icao_id": return [self.visit_simple_regex(n, [])]
+    def visit_a_clause(self, node: RegexNode, _: Sequence[Any]) -> None:
+        def _dfs_icao_id(n: RegexNode | Node) -> List[str]:
+            if n.expr_name == "icao_id": return [self.visit_simple_regex(cast(RegexNode, n), [])]
             return sum([_dfs_icao_id(c) for c in n.children], []) # flatten list-of-lists
 
         start = node.children[2].start
@@ -152,12 +153,12 @@ class NotamParseVisitor(parsimonious.NodeVisitor):
         self.tgt.location = _dfs_icao_id(node)
         self.tgt.indices_item_a = (start, end)
 
-    def visit_b_clause(self, node: Node, visited_children: Sequence[Any]):
+    def visit_b_clause(self, node: Node, visited_children: Sequence[Any]) -> None:
         self.tgt.valid_from = visited_children[2]
         content_child = node.children[2]
         self.tgt.indices_item_b = (content_child.start, content_child.end)
 
-    def visit_c_clause(self, node: Node, visited_children: Sequence[Any]):
+    def visit_c_clause(self, node: Node, visited_children: Sequence[Any]) -> None:
         if self.has_descendant(node, 'permanent'):
             dt = datetime.max
         else:
@@ -168,42 +169,40 @@ class NotamParseVisitor(parsimonious.NodeVisitor):
         content_child = node.children[2]
         self.tgt.indices_item_c = (content_child.start, content_child.end)
 
-    def visit_d_clause(self, node: Node, visited_children: Sequence[Any]):
+    def visit_d_clause(self, node: Node, visited_children: Sequence[Any]) -> None:
         self.tgt.schedule = visited_children[2]
         content_child = node.children[2]
         self.tgt.indices_item_d = (content_child.start, content_child.end)
 
-    def visit_e_clause(self, node: Node, visited_children: Sequence[Any]):
+    def visit_e_clause(self, node: Node, visited_children: Sequence[Any]) -> None:
         self.tgt.body = visited_children[2]
         content_child = node.children[2]
         self.tgt.indices_item_e = (content_child.start, content_child.end)
 
-    def visit_f_clause(self, node: Node, visited_children: Sequence[Any]):
+    def visit_f_clause(self, node: Node, visited_children: Sequence[Any]) -> None:
         self.tgt.limit_lower = visited_children[2]
         content_child = node.children[2]
         self.tgt.indices_item_f = (content_child.start, content_child.end)
 
-    def visit_g_clause(self, node: Node, visited_children: Sequence[Any]):
+    def visit_g_clause(self, node: Node, visited_children: Sequence[Any]) -> None:
         self.tgt.limit_upper = visited_children[2]
         content_child = node.children[2]
         self.tgt.indices_item_g = (content_child.start, content_child.end)
 
-    def visit_datetime(self, _, visited_children: List[Any]):
+    def visit_datetime(self, _: Node, visited_children: List[Any]) -> datetime:
         dparts = visited_children
         dparts[0] = 1900 + dparts[0] if dparts[0] > 80 else 2000 + dparts[0] # interpret 2-digit year
         return datetime(*dparts, tzinfo=timezone.utc)
 
-    def visit_created(self, _, visited_children: List[Any]):
+    def visit_created(self, _: Node, visited_children: List[Any]) -> None:
         self.tgt.created = datetime(visited_children[6], visited_children[4], visited_children[2], visited_children[8], visited_children[10], tzinfo=timezone.utc)
-        return visited_children
 
-    def visit_source(self, _, visited_children: List[Any]):
+    def visit_source(self, _: Node, visited_children: List[Any]) -> None:
         self.tgt.source = visited_children[2]
-        return visited_children
 
     @override
     def generic_visit(self, node: Node, visited_children: Sequence[Any]) -> Sequence[Any]:
         return visited_children
 
-    def visit_root(self, node: Node, _):
+    def visit_root(self, node: Node, _: Sequence[Any]) -> None:
         self.tgt.full_text = node.full_text

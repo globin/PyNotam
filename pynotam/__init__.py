@@ -39,20 +39,20 @@ class Notam(object):
     notam_code: Optional[str] = None
 
     '''Set of affected traffic. Will contain one or more of: "IFR"/"VFR"/"CHECKLIST"'''
-    traffic_type: Optional[Set[str]] = None
+    traffic_type: Set[str] = set()
 
     """
     Set of NOTAM purposes. Will contain one or more of:
       'IMMEDIATE ATTENTION'/'OPERATIONAL SIGNIFICANCE'/'FLIGHT OPERATIONS'/
       'MISC'/'CHECKLIST'.
     """
-    purpose: Optional[Set[str]] = None
+    purpose: Set[str] = set()
 
     """
     Set of NOTAM scopes. Will contain one or more of:
       'AERODROME'/'EN-ROUTE'/'NAV WARNING'/'CHECKLIST'.
     """
-    scope: Optional[Set[str]] = None
+    scope: Set[str] = set()
 
     """Lower vertical limit of NOTAM area of influence, expressed in flight levels (int)."""
     fl_lower: Optional[str] = None
@@ -62,13 +62,13 @@ class Notam(object):
     Approximate circle whose radius encompasses the NOTAM's whole area of influence.
     This is a dict with keys: 'lat', 'long', 'radius' (str, str, int respectively).
     """
-    area: Optional[Dict[str, str | int]] = None
+    area: Dict[str, str | int] = {}
 
     """
     List of one or more ICAO location indicators, specifying the aerodrome or FIR
     in which the facility, airspace, or condition being reported on is located.
     """
-    location: Optional[List[str]] = None
+    location: List[str] = []
 
     """The date and time at which the NOTAM comes into force (datetime.datetime)."""
     valid_from: Optional[str] = None

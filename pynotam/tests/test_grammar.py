@@ -5,8 +5,8 @@ from .test_helper import read_test_data
 
 
 class GrammarParse(unittest.TestCase):
-    def __init__(self, *args, **kwargs):
-        super(GrammarParse, self).__init__(*args, **kwargs)
+    def __init__(self, methodName: str="runTest"):
+        super(GrammarParse, self).__init__(methodName)
         self.test_data = read_test_data()
 
     def try_parse_all(self, rule: str, items: list[str]) -> None:

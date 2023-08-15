@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import datetime
 
 
@@ -6,7 +8,7 @@ class EstimatedDateTime(datetime):
     except that the instance will have an attribute 'is_estimated' which is set to True."""
     is_estimated = False
 
-    def __new__(cls, *args, **kwargs):
+    def __new__(cls, *args, **kwargs) -> EstimatedDateTime:
         """May be initialized either identically to a regular datetime.datetime or, optionally, by
         providing an existing datetime object to copy."""
 
