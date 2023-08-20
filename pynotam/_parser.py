@@ -160,7 +160,7 @@ class NotamParseVisitor(parsimonious.NodeVisitor):
 
     def visit_c_clause(self, node: Node, visited_children: Sequence[Any]) -> None:
         if self.has_descendant(node, 'permanent'):
-            dt = datetime.max
+            dt = datetime.max.replace(tzinfo=timezone.utc)
         else:
             dt = visited_children[2][0][0]
             if self.has_descendant(node, 'estimated'):
